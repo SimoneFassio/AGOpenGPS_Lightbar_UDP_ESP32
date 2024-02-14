@@ -24,29 +24,29 @@ by hagre
 #define SUB_VERSION 3
 
 //features
-#define DEBUG_UART_ENABLED //enable or disable with // in front of #define     //self explaining (more or less just for me to use)
+//#define DEBUG_UART_ENABLED //enable or disable with // in front of #define     //self explaining (more or less just for me to use)
 //#define LED_BRIGHTNESS_CONTROL_ENABLED //enable or disable with // in front of #define   you need to connect a potentiometer to the pin
 
 //network IP
 #define IP_DIGIT1_OF_THIS_NODE 192
 #define IP_DIGIT2_OF_THIS_NODE 168
-#define IP_DIGIT3_OF_THIS_NODE 4
-#define IP_DIGIT4_OF_THIS_NODE 99
+#define IP_DIGIT3_OF_THIS_NODE 1
+#define IP_DIGIT4_OF_THIS_NODE 126
 
 //WIFI settings
-#define YOUR_WIFI_SSID "TS115_WLAN"
-#define YOUR_WIFI_PASSWORD "TS115_WLAN"
+#define YOUR_WIFI_SSID "GPStrattore"
+#define YOUR_WIFI_PASSWORD "AGOPENGPS"
 #define YOUR_WIFI_HOSTNAME "AOG_Lightbar"
 #define PORT_TO_LISTEN 8888 // local port to listen for UDP packets
 #define UDP_PACKET_SIZE 1024
 #define MAX_WAIT_TIME_UDP 2000  //ms timeout for waiting on valide UDP msg
 
 //LED Settings
-#define NUMPIXELS   35                 // Odd number dont use =0 
-#define Neopixel_Pin 16                //GPIO16 Set this to the pin number you are using for the Neopixel strip controll line
+#define NUMPIXELS   71                 // Odd number dont use =0 
+#define Neopixel_Pin 13                //GPIO16 Set this to the pin number you are using for the Neopixel strip controll line
 #define cmPerLightbarPixel  2          // Must be a multiple of cmPerDistInt
 #define cmPerDistInt  2                // The number of centimeters represented by a change in 1 of the AOG cross track error byte
-#define LED_UPDATE_TIME 1000  //ms
+#define LED_UPDATE_TIME 200  //ms
 #define LED_BRIGHTNESS 100    //0-255
 #ifdef  LED_BRIGHTNESS_CONTROL_ENABLED
   #define ANALOG_PIN 34 // GPIO 34 (Analog ADC1_CH6) 
