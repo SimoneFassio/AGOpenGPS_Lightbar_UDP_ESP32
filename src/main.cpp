@@ -30,8 +30,8 @@ by hagre
 //network IP
 #define IP_DIGIT1_OF_THIS_NODE 192
 #define IP_DIGIT2_OF_THIS_NODE 168
-#define IP_DIGIT3_OF_THIS_NODE 1
-#define IP_DIGIT4_OF_THIS_NODE 126
+#define IP_DIGIT3_OF_THIS_NODE 137
+#define IP_DIGIT4_OF_THIS_NODE 128
 
 //WIFI settings
 #define YOUR_WIFI_SSID "GPStrattore"
