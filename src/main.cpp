@@ -19,6 +19,15 @@ by hagre
 05 2021
 */
 
+
+//to do
+//xtask incoming data:
+//  -from AOG Lightbar
+//  -from ESP PANDA
+//I2C screen
+//xtask fastled
+
+
 //version
 #define VERSION 0
 #define SUB_VERSION 3
@@ -223,7 +232,7 @@ void loop() {
         }
       }
     }
-    else if (statusOfProgram == -1){
+    else if (statusOfProgram == -1){        //CONNECTED
       for (int i = 0; i < NUMPIXELS; i++){
         if (i == 0 || i == NUMPIXELS -1){//Left end right end of Leds
           leds[i] = CRGB::Blue;
@@ -233,7 +242,7 @@ void loop() {
         }
       }
     }
-    else if (statusOfProgram == 0){
+    else if (statusOfProgram == 0){         //READY
       for (int i = 0; i < NUMPIXELS; i++){
         if (i == 0 || i == NUMPIXELS -1){//Left end right end of Leds
           leds[i] = CRGB::Green;
