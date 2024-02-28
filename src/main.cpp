@@ -33,7 +33,7 @@ by hagre
 #define SUB_VERSION 3
 
 //features
-//#define DEBUG_UART_ENABLED //enable or disable with // in front of #define     //self explaining (more or less just for me to use)
+#define DEBUG_UART_ENABLED //enable or disable with // in front of #define     //self explaining (more or less just for me to use)
 //#define LED_BRIGHTNESS_CONTROL_ENABLED //enable or disable with // in front of #define   you need to connect a potentiometer to the pin
 
 //network IP
@@ -173,7 +173,7 @@ void loop() {
       #endif
 
       if (sizeOfUDP < UDP_PACKET_SIZE) {
-        Udp.read(packetBuffer, UDP_PACKET_SIZE);
+        Udp.read(packetBuffer, sizeOfUDP);
         #ifdef DEBUG_UART_ENABLED
           //for (uint16_t i=0; i<sizeOfUDP; i++){
           //  SerialDebug.print(packetBuffer [i]);
