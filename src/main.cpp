@@ -268,6 +268,7 @@ void getDataFromAOGWiFi(void *pvParameters)
         statusOfProgram = -1;
       }
     }
+    vTaskDelay(10);
   }
 }
 
