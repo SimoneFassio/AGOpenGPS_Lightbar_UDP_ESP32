@@ -45,8 +45,8 @@ by hagre
 #define YOUR_WIFI_PASSWORD "AGOPENGPS"
 #define YOUR_WIFI_HOSTNAME "AOG_Lightbar"
 #define PORT_TO_LISTEN 8888 // local port to listen for UDP packets
-#define PORT_FROM_PANDA 1526
-#define UDP_PACKET_SIZE 512
+#define PORT_FROM_PANDA 9999 //1526
+#define UDP_PACKET_SIZE 1024
 #define MAX_WAIT_TIME_UDP 2000 // ms timeout for waiting on valide UDP msg
 
 // LED Settings
@@ -69,12 +69,12 @@ by hagre
 // Serial Port config - do not change
 #define DEBUG_UART_HARDWARE_PORT 0 // config as required // USB == 0
 #define DEBUG_UART_BOUD 115200     // config as required
-#define UART0RX 3                  // ESP32 GPIOs
-#define UART0TX 1
+#define UART0RX -1                  // ESP32 GPIOs
+#define UART0TX -1
 
 #define SCREEN_WIDTH 128  // OLED display width, in pixels
 #define SCREEN_HEIGHT 64  // OLED display height, in pixels
-#define OLED_ADDRESS 0x78 // Address 0x3D for 128x64
+#define OLED_ADDRESS 0x3C // Address 0x3D for 128x64
 //++++++++++++++++++++++++++++++++++++++++++++++++ END of CONFIG +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #include <Arduino.h>
@@ -84,7 +84,7 @@ by hagre
 #include "NMEAParser.h"
 #include <Wire.h>
 #include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <Adafruit_SH110X.h>
 SyncWifiConnectionESP32 SyncWifiConnection;
 int8_t LANStatus = -5; // Connected to Network //WIFI or ETHERNET //-5 = init, -2 = just disconnected, -1 = wait to reconnect, 0 = disconnected, 1 = connecting, 2 = just connected,  3 = still connected
 int8_t LANStatusOld = -6;
@@ -110,7 +110,7 @@ char altitude_c[12];
 float altitude;
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 CRGBArray<NUMPIXELS> leds;
 const uint8_t centerpixel = (NUMPIXELS - 1) / 2;
@@ -140,6 +140,7 @@ void setup()
 #ifdef DEBUG_UART_ENABLED
   SerialDebug.begin(serialDebugPortBoud, SERIAL_8N1, UART0RX, UART0TX); // Debug output, usually USB Port
   SerialDebug.println("Setup");
+  //Serial.begin(115200);
 #endif
 
   statusOfProgram = -2;
@@ -154,35 +155,32 @@ void setup()
   lastLEDUpdate = millis();
 
   xTaskCreate(getDataFromAOGWiFi, "DataFromAOGHandleWiFi", 3072, NULL, 1, &taskHandle_DataFromAOGWiFi);
-  xTaskCreate(getDataFromPANDA, "getDataFromPANDA", 3072, NULL, 1, &taskHandle_DataFromPANDA);
+  //xTaskCreate(getDataFromPANDA, "getDataFromPANDA", 3072, NULL, 1, &taskHandle_DataFromPANDA);
   xTaskCreate(FastLEDupdate, "FastLEDupdate", 3072, NULL, 2, &taskHandle_LEDupdate);
 
   parser.setErrorHandler(errorHandler);
   parser.addHandler("PANDA", PANDA_Handler);
 
-  if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS))
-    Serial.println(F("SSD1306 allocation failed"));
+  if (!display.begin(OLED_ADDRESS, true))
+    SerialDebug.println(F("SH1106 allocation failed"));
 
   display.clearDisplay();
 
-  display.setTextSize(4);
-  display.setTextColor(WHITE);
-  display.setCursor(0, 10);
+  display.setTextSize(3);
+  display.setTextColor(SH110X_WHITE);
+  display.setCursor(0, 20);
   // Display static text
   display.println("PRONTO");
   display.display();
 
   delay(500);
-  Serial.print("Timing: "); // provvisorio, cambia vtaskDelay
-  Serial.println(portTICK_PERIOD_MS);
-  Serial.println(configTICK_RATE_HZ);
 }
 
 void loop()
 {
   // put your main code here, to run repeatedly:
   LANStatus = SyncWifiConnection.loop(millis());
-
+  getDataFromPANDA(NULL);
 #ifdef DEBUG_UART_ENABLED
   // SerialDebug.print ("Status: ");
   // SerialDebug.println (statusOfProgramOld);
@@ -195,8 +193,8 @@ void loop()
 #ifdef DEBUG_UART_ENABLED
       SerialDebug.println("Starting UDP");
 #endif
-      Udp.begin(localPort);
-      UdpPANDA.begin(PANDAPort);
+      SerialDebug.println(UdpPANDA.begin(PANDAPort));
+      SerialDebug.println(Udp.begin(localPort));
       statusOfProgram = -1;
     }
     if (LANStatusOld == 3 && LANStatus <= 3)
@@ -224,7 +222,7 @@ void getDataFromAOGWiFi(void *pvParameters)
     if (LANStatus >= 3)
     { // still CONNECTED
 #ifdef DEBUG_UART_ENABLED
-      // SerialDebug.print(" L");
+      //SerialDebug.println(" L");
 #endif
       uint16_t sizeOfUDP = Udp.parsePacket();
       if (sizeOfUDP > 0)
@@ -238,11 +236,12 @@ void getDataFromAOGWiFi(void *pvParameters)
         {
           Udp.read(packetBuffer, sizeOfUDP);
 #ifdef DEBUG_UART_ENABLED
-          // for (uint16_t i=0; i<sizeOfUDP; i++){
-          //   SerialDebug.print(packetBuffer [i]);
-          //   SerialDebug.print(" ");
-          // }
-          // SerialDebug.println("");
+          /*SerialDebug.println("AOG packet:");
+           for (uint16_t i=0; i<sizeOfUDP; i++){
+             SerialDebug.print(packetBuffer [i]);
+             SerialDebug.print(" ");
+           }
+           SerialDebug.println("");*/
 #endif
 
           if (packetBuffer[0] == 0x80 && packetBuffer[1] == 0x81 && packetBuffer[2] == 0x7f && packetBuffer[3] == 0xfe)
@@ -283,33 +282,39 @@ void getDataFromAOGWiFi(void *pvParameters)
 
 void getDataFromPANDA(void *pvParameters)
 {
-  for (;;)
-  {
+  //SerialDebug.println("PANDA_LOOP1");
+  //for (;;)
+  //{
+    //SerialDebug.println("PANDA_LOOP2");
     if (LANStatus >= 3)
     { // still CONNECTED
 #ifdef DEBUG_UART_ENABLED
       // SerialDebug.print(" L");
+      //SerialDebug.println("PANDA_LOOP3");
 #endif
-      uint16_t sizeOfUDP = UdpPANDA.parsePacket();
-      if (sizeOfUDP > 0)
+      uint16_t sizeOfUDPP = UdpPANDA.parsePacket();
+      //SerialDebug.print("PANDAsize: ");
+      //SerialDebug.println(sizeOfUDPP);
+      if (sizeOfUDPP > 0)
       {
 #ifdef DEBUG_UART_ENABLED
-        // SerialDebug.print(sizeOfUDP);
+        // SerialDebug.print(sizeOfUDPP);
         // SerialDebug.println(" packets received");
 #endif
 
-        if (sizeOfUDP < UDP_PACKET_SIZE)
+        if (sizeOfUDPP < UDP_PACKET_SIZE)
         {
-          UdpPANDA.read(packetBufferPANDA, sizeOfUDP);
+          UdpPANDA.read(packetBufferPANDA, sizeOfUDPP);
 #ifdef DEBUG_UART_ENABLED
-          for (uint16_t i = 0; i < sizeOfUDP; i++)
+            SerialDebug.println("PANDA packet:");
+          for (uint16_t i = 0; i < sizeOfUDPP; i++)
           {
             SerialDebug.print(packetBufferPANDA[i]);
             SerialDebug.print(" ");
           }
           SerialDebug.println("");
 #endif
-          for (uint16_t i = 0; i < sizeOfUDP; i++)
+          for (uint16_t i = 0; i < sizeOfUDPP; i++)
             parser << packetBufferPANDA[i];
         }
       }
@@ -318,7 +323,7 @@ void getDataFromPANDA(void *pvParameters)
         statusOfProgram = -1;
       }
     }
-  }
+  //}
 }
 
 void FastLEDupdate(void *pvParameters)
@@ -441,9 +446,9 @@ void OLED_Update()
 
   display.clearDisplay();
 
-  display.setTextSize(4);
-  display.setTextColor(WHITE);
-  display.setCursor(0, 10);
+  display.setTextSize(3);
+  display.setTextColor(SH110X_WHITE);
+  display.setCursor(0, 20);
   // Display static text
   display.println(output);
   display.display();
