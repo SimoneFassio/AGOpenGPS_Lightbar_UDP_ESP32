@@ -31,7 +31,7 @@ by hagre
 #define SUB_VERSION 3
 
 // features
-// #define DEBUG_UART_ENABLED //enable or disable with // in front of #define     //self explaining (more or less just for me to use)
+ #define DEBUG_UART_ENABLED //enable or disable with // in front of #define     //self explaining (more or less just for me to use)
 // #define LED_BRIGHTNESS_CONTROL_ENABLED //enable or disable with // in front of #define   you need to connect a potentiometer to the pin
 
 // network IP
@@ -74,7 +74,7 @@ by hagre
 
 #define SCREEN_WIDTH 128  // OLED display width, in pixels
 #define SCREEN_HEIGHT 64  // OLED display height, in pixels
-#define OLED_ADDRESS 0x3C // Address 0x3D for 128x64
+#define OLED_ADDRESS 0x78 // Address 0x3D for 128x64
 //++++++++++++++++++++++++++++++++++++++++++++++++ END of CONFIG +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #include <Arduino.h>
@@ -162,6 +162,15 @@ void setup()
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS))
     Serial.println(F("SSD1306 allocation failed"));
+
+  display.clearDisplay();
+
+  display.setTextSize(4);
+  display.setTextColor(WHITE);
+  display.setCursor(0, 10);
+  // Display static text
+  display.println("PRONTO");
+  display.display();
 
   delay(500);
   Serial.print("Timing: "); // provvisorio, cambia vtaskDelay
