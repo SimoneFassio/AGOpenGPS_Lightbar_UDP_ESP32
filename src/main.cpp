@@ -133,7 +133,6 @@ void FastLEDupdate(void *pvParameters);
 void errorHandler();
 void PANDA_Handler();
 void OLED_Update();
-
 void setup()
 {
 // put your setup code here, to run once:
@@ -170,6 +169,7 @@ void setup()
   display.setTextColor(SH110X_WHITE);
   display.setCursor(0, 20);
   // Display static text
+  display.setRotation(2);
   display.println("PRONTO");
   display.display();
 
