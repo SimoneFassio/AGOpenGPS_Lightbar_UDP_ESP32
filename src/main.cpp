@@ -167,7 +167,7 @@ void setup()
 
   display.setTextSize(3);
   display.setTextColor(SH110X_WHITE);
-  display.setCursor(0, 20);
+  display.setCursor(10, 20);
   // Display static text
   display.setRotation(2);
   display.println("PRONTO");
