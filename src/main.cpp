@@ -19,13 +19,6 @@ by hagre
 05 2021
 */
 
-// to do
-// xtask incoming data:
-//   -from AOG Lightbar
-//   -from ESP PANDA
-// I2C screen
-// xtask fastled
-
 // version
 #define VERSION 0
 #define SUB_VERSION 3
@@ -85,6 +78,14 @@ by hagre
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SH110X.h>
+
+#define BUTTON_PIN 18 // GPIO pin connected to button
+
+// Variables will change:
+int8_t buttonLastState = HIGH; // the previous state from the input pin
+int8_t buttonCurrentState;     // the current reading from the input pin
+float zero_altitude=0;
+
 SyncWifiConnectionESP32 SyncWifiConnection;
 int8_t LANStatus = -5; // Connected to Network //WIFI or ETHERNET //-5 = init, -2 = just disconnected, -1 = wait to reconnect, 0 = disconnected, 1 = connecting, 2 = just connected,  3 = still connected
 int8_t LANStatusOld = -6;
@@ -133,6 +134,8 @@ void FastLEDupdate(void *pvParameters);
 void errorHandler();
 void PANDA_Handler();
 void OLED_Update();
+void buttonHandler();
+
 void setup()
 {
 // put your setup code here, to run once:
@@ -172,6 +175,8 @@ void setup()
   display.setRotation(2);
   display.println("PRONTO");
   display.display();
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
 
   delay(500);
 }
@@ -213,6 +218,7 @@ void loop()
 #endif
     LANStatusOld = LANStatus;
   }
+  buttonHandler();
 }
 
 void getDataFromAOGWiFi(void *pvParameters)
@@ -442,7 +448,7 @@ void PANDA_Handler() // Rec'd GGA
 void OLED_Update()
 {
   char output[12];
-  sprintf(output, "%3.2f", altitude);
+  sprintf(output, "%3.2f", (altitude-zero_altitude));
 
   display.clearDisplay();
 
@@ -457,4 +463,18 @@ void OLED_Update()
   SerialDebug.print("output: ");
   SerialDebug.println(output);
 #endif
+}
+
+void buttonHandler(){
+  buttonCurrentState = digitalRead(BUTTON_PIN);
+
+  if(buttonLastState == HIGH && buttonCurrentState == LOW){
+    if(zero_altitude==0)
+      zero_altitude = altitude;
+    else
+      zero_altitude = 0;
+  }
+
+  // save the last state
+  buttonLastState = buttonCurrentState;
 }
