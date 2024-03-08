@@ -24,7 +24,7 @@ by hagre
 #define SUB_VERSION 3
 
 // features
- #define DEBUG_UART_ENABLED //enable or disable with // in front of #define     //self explaining (more or less just for me to use)
+#define DEBUG_UART_ENABLED // enable or disable with // in front of #define     //self explaining (more or less just for me to use)
 // #define LED_BRIGHTNESS_CONTROL_ENABLED //enable or disable with // in front of #define   you need to connect a potentiometer to the pin
 
 // network IP
@@ -37,8 +37,8 @@ by hagre
 #define YOUR_WIFI_SSID "GPStrattore"
 #define YOUR_WIFI_PASSWORD "AGOPENGPS"
 #define YOUR_WIFI_HOSTNAME "AOG_Lightbar"
-#define PORT_TO_LISTEN 8888 // local port to listen for UDP packets
-#define PORT_FROM_PANDA 9999 //1526
+#define PORT_TO_LISTEN 8888  // local port to listen for UDP packets
+#define PORT_FROM_PANDA 9999 // 1526
 #define UDP_PACKET_SIZE 1024
 #define MAX_WAIT_TIME_UDP 2000 // ms timeout for waiting on valide UDP msg
 
@@ -62,7 +62,7 @@ by hagre
 // Serial Port config - do not change
 #define DEBUG_UART_HARDWARE_PORT 0 // config as required // USB == 0
 #define DEBUG_UART_BOUD 115200     // config as required
-#define UART0RX -1                  // ESP32 GPIOs
+#define UART0RX -1                 // ESP32 GPIOs
 #define UART0TX -1
 
 #define SCREEN_WIDTH 128  // OLED display width, in pixels
@@ -72,7 +72,7 @@ by hagre
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WiFiUDP.h>
+#include <AsyncUDP.h>
 #include <SyncWifiConnectionESP32.h>
 #include "NMEAParser.h"
 #include <Wire.h>
@@ -84,7 +84,7 @@ by hagre
 // Variables will change:
 int8_t buttonLastState = HIGH; // the previous state from the input pin
 int8_t buttonCurrentState;     // the current reading from the input pin
-float zero_altitude=0;
+float zero_altitude = 0;
 
 SyncWifiConnectionESP32 SyncWifiConnection;
 int8_t LANStatus = -5; // Connected to Network //WIFI or ETHERNET //-5 = init, -2 = just disconnected, -1 = wait to reconnect, 0 = disconnected, 1 = connecting, 2 = just connected,  3 = still connected
@@ -94,17 +94,15 @@ const char *password = YOUR_WIFI_PASSWORD;
 const IPAddress Node_IP(IP_DIGIT1_OF_THIS_NODE, IP_DIGIT2_OF_THIS_NODE, IP_DIGIT3_OF_THIS_NODE, IP_DIGIT4_OF_THIS_NODE);
 
 // A UDP instance to let us send and receive packets over UDP
-WiFiUDP Udp;
-WiFiUDP UdpPANDA;
+AsyncUDP udp;
+AsyncUDP udpPANDA;
 unsigned int localPort = PORT_TO_LISTEN; // local port to listen for UDP packets
 unsigned int PANDAPort = PORT_FROM_PANDA;
-byte packetBuffer[UDP_PACKET_SIZE];      // buffer to hold incoming packets
-byte packetBufferPANDA[UDP_PACKET_SIZE]; // buffer to hold incoming packets
+// byte packetBuffer[UDP_PACKET_SIZE];      // buffer to hold incoming packets
+// byte packetBufferPANDA[UDP_PACKET_SIZE]; // buffer to hold incoming packets
 unsigned long lastvalideXtrackreceived = 0;
-
-TaskHandle_t taskHandle_DataFromAOGWiFi;
-TaskHandle_t taskHandle_LEDupdate;
-TaskHandle_t taskHandle_DataFromPANDA;
+byte *packetBuffer;
+byte *packetBufferPANDA;
 
 NMEAParser<1> parser;
 char altitude_c[12];
@@ -128,8 +126,10 @@ int8_t statusOfProgramOld = -3;
 uint32_t serialDebugPortBoud = DEBUG_UART_BOUD;
 HardwareSerial SerialDebug(DEBUG_UART_HARDWARE_PORT);
 
-void getDataFromAOGWiFi(void *pvParameters);
-void getDataFromPANDA(void *pvParameters);
+TaskHandle_t taskHandle_LEDupdate;
+
+void getDataFromAOGWiFi();
+void getDataFromPANDA();
 void FastLEDupdate(void *pvParameters);
 void errorHandler();
 void PANDA_Handler();
@@ -142,7 +142,7 @@ void setup()
 #ifdef DEBUG_UART_ENABLED
   SerialDebug.begin(serialDebugPortBoud, SERIAL_8N1, UART0RX, UART0TX); // Debug output, usually USB Port
   SerialDebug.println("Setup");
-  //Serial.begin(115200);
+  // Serial.begin(115200);
 #endif
 
   statusOfProgram = -2;
@@ -156,8 +156,8 @@ void setup()
   FastLED.addLeds<LED_TYPE, Neopixel_Pin, LED_COLOR_SETTING>(leds, NUMPIXELS).setCorrection(LED_CORRECTION);
   lastLEDUpdate = millis();
 
-  xTaskCreate(getDataFromAOGWiFi, "DataFromAOGHandleWiFi", 3072, NULL, 1, &taskHandle_DataFromAOGWiFi);
-  //xTaskCreate(getDataFromPANDA, "getDataFromPANDA", 3072, NULL, 1, &taskHandle_DataFromPANDA);
+  getDataFromAOGWiFi();
+  getDataFromPANDA();
   xTaskCreate(FastLEDupdate, "FastLEDupdate", 3072, NULL, 2, &taskHandle_LEDupdate);
 
   parser.setErrorHandler(errorHandler);
@@ -185,151 +185,84 @@ void loop()
 {
   // put your main code here, to run repeatedly:
   LANStatus = SyncWifiConnection.loop(millis());
-  getDataFromPANDA(NULL);
 #ifdef DEBUG_UART_ENABLED
   // SerialDebug.print ("Status: ");
   // SerialDebug.println (statusOfProgramOld);
 #endif
-
   if (LANStatus != LANStatusOld)
   {
     if (LANStatusOld < 3 && LANStatus == 3)
     {
-#ifdef DEBUG_UART_ENABLED
-      SerialDebug.println("Starting UDP");
-#endif
-      SerialDebug.println(UdpPANDA.begin(PANDAPort));
-      SerialDebug.println(Udp.begin(localPort));
       statusOfProgram = -1;
     }
     if (LANStatusOld == 3 && LANStatus <= 3)
     {
-#ifdef DEBUG_UART_ENABLED
-      SerialDebug.println("Stoping UDP");
-#endif
-      Udp.stop();
-      UdpPANDA.stop();
       statusOfProgram = -2;
     }
-
 #ifdef DEBUG_UART_ENABLED
     SerialDebug.print(LANStatusOld);
     SerialDebug.println(LANStatus);
 #endif
     LANStatusOld = LANStatus;
   }
+
   buttonHandler();
 }
 
-void getDataFromAOGWiFi(void *pvParameters)
+void getDataFromAOGWiFi()
 {
-  for (;;)
+  if (udp.listen(PORT_TO_LISTEN))
   {
-    if (LANStatus >= 3)
-    { // still CONNECTED
 #ifdef DEBUG_UART_ENABLED
-      //SerialDebug.println(" L");
+    Serial.print("UDP Listening on IP: ");
+    Serial.println(WiFi.localIP());
 #endif
-      uint16_t sizeOfUDP = Udp.parsePacket();
-      if (sizeOfUDP > 0)
+    udp.onPacket([](AsyncUDPPacket packet)
+                 {
+          packetBuffer = packet.data();
+      if (packetBuffer[0] == 0x80 && packetBuffer[1] == 0x81 && packetBuffer[2] == 0x7f && packetBuffer[3] == 0xfe)
       {
+        lastvalideXtrackreceived = millis();
 #ifdef DEBUG_UART_ENABLED
-        // SerialDebug.print(sizeOfUDP);
-        // SerialDebug.println(" packets received");
+        SerialDebug.print(packetBuffer[10]);
+        SerialDebug.print(" Correct Header found. Distance = ");
 #endif
-
-        if (sizeOfUDP < UDP_PACKET_SIZE)
+        if (packetBuffer[10] == 255)
         {
-          Udp.read(packetBuffer, sizeOfUDP);
+          cross_track_error = 0;
+          statusOfProgram = 0;
 #ifdef DEBUG_UART_ENABLED
-          /*SerialDebug.println("AOG packet:");
-           for (uint16_t i=0; i<sizeOfUDP; i++){
-             SerialDebug.print(packetBuffer [i]);
-             SerialDebug.print(" ");
-           }
-           SerialDebug.println("");*/
+          SerialDebug.println(" AUTO not active");
 #endif
-
-          if (packetBuffer[0] == 0x80 && packetBuffer[1] == 0x81 && packetBuffer[2] == 0x7f && packetBuffer[3] == 0xfe)
-          {
-            lastvalideXtrackreceived = millis();
-
+        }
+        else
+        {
+          cross_track_error = packetBuffer[10] - 127;
+          statusOfProgram = 1;
 #ifdef DEBUG_UART_ENABLED
-            SerialDebug.print(packetBuffer[10]);
-            SerialDebug.print(" Correct Header found. Distance = ");
+          SerialDebug.println(cross_track_error);
 #endif
-            if (packetBuffer[10] == 255)
-            {
-              cross_track_error = 0;
-              statusOfProgram = 0;
-#ifdef DEBUG_UART_ENABLED
-              SerialDebug.println(" AUTO not active");
-#endif
-            }
-            else
-            {
-              cross_track_error = packetBuffer[10] - 127;
-              statusOfProgram = 1;
-#ifdef DEBUG_UART_ENABLED
-              SerialDebug.println(cross_track_error);
-#endif
-            }
-          }
         }
       }
-      if (millis() - lastvalideXtrackreceived > MAX_WAIT_TIME_UDP)
-      {
-        statusOfProgram = -1;
-      }
-    }
-    vTaskDelay(10);
+        if (millis() - lastvalideXtrackreceived > MAX_WAIT_TIME_UDP)
+          statusOfProgram = -1; });
   }
 }
 
-void getDataFromPANDA(void *pvParameters)
+void getDataFromPANDA()
 {
-  //SerialDebug.println("PANDA_LOOP1");
-  //for (;;)
-  //{
-    //SerialDebug.println("PANDA_LOOP2");
-    if (LANStatus >= 3)
-    { // still CONNECTED
+  if (udpPANDA.listen(PORT_FROM_PANDA))
+  {
 #ifdef DEBUG_UART_ENABLED
-      // SerialDebug.print(" L");
-      //SerialDebug.println("PANDA_LOOP3");
+    Serial.print("UDP PANDA Listening on IP: ");
+    Serial.println(WiFi.localIP());
 #endif
-      uint16_t sizeOfUDPP = UdpPANDA.parsePacket();
-      //SerialDebug.print("PANDAsize: ");
-      //SerialDebug.println(sizeOfUDPP);
-      if (sizeOfUDPP > 0)
-      {
-#ifdef DEBUG_UART_ENABLED
-        // SerialDebug.print(sizeOfUDPP);
-        // SerialDebug.println(" packets received");
-#endif
-
-        if (sizeOfUDPP < UDP_PACKET_SIZE)
-        {
-          UdpPANDA.read(packetBufferPANDA, sizeOfUDPP);
-#ifdef DEBUG_UART_ENABLED
-            SerialDebug.println("PANDA packet:");
-          for (uint16_t i = 0; i < sizeOfUDPP; i++)
-          {
-            SerialDebug.print(packetBufferPANDA[i]);
-            SerialDebug.print(" ");
-          }
-          SerialDebug.println("");
-#endif
-          for (uint16_t i = 0; i < sizeOfUDPP; i++)
-            parser << packetBufferPANDA[i];
-        }
-      }
-      if (millis() - lastvalideXtrackreceived > MAX_WAIT_TIME_UDP)
-      {
-        statusOfProgram = -1;
-      }
-    }
-  //}
+    udpPANDA.onPacket([](AsyncUDPPacket packet)
+                      {
+          packetBufferPANDA = packet.data();
+      for (uint16_t i = 0; i < packet.length(); i++)
+          parser << packetBufferPANDA[i]; });
+  }
 }
 
 void FastLEDupdate(void *pvParameters)
@@ -419,7 +352,7 @@ void FastLEDupdate(void *pvParameters)
       statusOfProgramOld = statusOfProgram;
       cross_track_errorOld = cross_track_error;
     }
-    vTaskDelay(50);
+    vTaskDelay(20);
   }
 }
 
@@ -448,7 +381,7 @@ void PANDA_Handler() // Rec'd GGA
 void OLED_Update()
 {
   char output[12];
-  sprintf(output, "%3.2f", (altitude-zero_altitude));
+  sprintf(output, "%3.2f", (altitude - zero_altitude));
 
   display.clearDisplay();
 
@@ -465,11 +398,13 @@ void OLED_Update()
 #endif
 }
 
-void buttonHandler(){
+void buttonHandler()
+{
   buttonCurrentState = digitalRead(BUTTON_PIN);
 
-  if(buttonLastState == HIGH && buttonCurrentState == LOW){
-    if(zero_altitude==0)
+  if (buttonLastState == HIGH && buttonCurrentState == LOW)
+  {
+    if (zero_altitude == 0)
       zero_altitude = altitude;
     else
       zero_altitude = 0;
