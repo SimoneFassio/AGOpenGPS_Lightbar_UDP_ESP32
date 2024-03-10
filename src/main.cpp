@@ -156,8 +156,6 @@ void setup()
   FastLED.addLeds<LED_TYPE, Neopixel_Pin, LED_COLOR_SETTING>(leds, NUMPIXELS).setCorrection(LED_CORRECTION);
   lastLEDUpdate = millis();
 
-  getDataFromAOGWiFi();
-  getDataFromPANDA();
   xTaskCreate(FastLEDupdate, "FastLEDupdate", 3072, NULL, 2, &taskHandle_LEDupdate);
 
   parser.setErrorHandler(errorHandler);
@@ -178,7 +176,11 @@ void setup()
 
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
-  delay(500);
+  delay(10000);
+
+
+  getDataFromAOGWiFi();
+  getDataFromPANDA();
 }
 
 void loop()
