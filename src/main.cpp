@@ -177,10 +177,6 @@ void setup()
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
   delay(10000);
-
-
-  getDataFromAOGWiFi();
-  getDataFromPANDA();
 }
 
 void loop()
@@ -195,12 +191,21 @@ void loop()
   {
     if (LANStatusOld < 3 && LANStatus == 3)
     {
+#ifdef DEBUG_UART_ENABLED
+      SerialDebug.println("Starting UDP");
+#endif
+      getDataFromAOGWiFi();
+      getDataFromPANDA();
       statusOfProgram = -1;
     }
     if (LANStatusOld == 3 && LANStatus <= 3)
     {
+#ifdef DEBUG_UART_ENABLED
+      SerialDebug.println("Stoping UDP");
+#endif
       statusOfProgram = -2;
     }
+
 #ifdef DEBUG_UART_ENABLED
     SerialDebug.print(LANStatusOld);
     SerialDebug.println(LANStatus);
