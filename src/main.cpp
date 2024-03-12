@@ -334,7 +334,8 @@ void FastLEDupdate(void *pvParameters)
       {
         //int8_t level = constrain((int8_t)(cross_track_error / cmPerLBPixel), -centerpixel, centerpixel);
         int8_t neg;
-        int8_t level = cross_track_error / cmPerLBPixel;
+        int16_t level = cross_track_error / cmPerLBPixel;
+    
     if(level<0){
       neg=-1;
       level=level*-1;
@@ -344,8 +345,8 @@ void FastLEDupdate(void *pvParameters)
     if(level>14 && level<21)  level=level-(0.5*(level-15));
     else if(level>20)   level=level-3-(0.7*(level-21));
     if(level>centerpixel) level = centerpixel;
-    
-        int8_t n = (level*neg) + centerpixel;
+    level = level*neg;
+        int8_t n = level + centerpixel;
         for (int i = 0; i < NUMPIXELS; i++)
         {
           if (i == centerpixel && i == n)
