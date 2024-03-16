@@ -212,8 +212,6 @@ void loop()
 #endif
     LANStatusOld = LANStatus;
   }
-
-  buttonHandler();
 }
 
 void getDataFromAOGWiFi()
@@ -396,6 +394,7 @@ void PANDA_Handler() // Rec'd GGA
   SerialDebug.println(altitude);
 #endif
   OLED_Update();
+  buttonHandler();
 }
 
 void OLED_Update()
